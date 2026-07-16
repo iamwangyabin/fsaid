@@ -1,0 +1,45 @@
+{
+  "dataset_root": "/home/yabin/projects/IAPL-GenImage/data/GenImage",
+  "manifest": "/home/yabin/projects/fsaid/data/manifests/genimage_official_zero_shot.csv",
+  "view": "omnidfa-zero-shot",
+  "rows": 56000,
+  "filesystem_order": true,
+  "official_fake_sources": [
+    "ADM",
+    "BigGAN",
+    "glide",
+    "Midjourney",
+    "stable_diffusion_v_1_4",
+    "stable_diffusion_v_1_5",
+    "VQDM",
+    "wukong"
+  ],
+  "official_real_source": "stable_diffusion_v_1_4",
+  "counts": {
+    "ADM": {
+      "1": 6000
+    },
+    "BigGAN": {
+      "1": 6000
+    },
+    "glide": {
+      "1": 6000
+    },
+    "Midjourney": {
+      "1": 6000
+    },
+    "stable_diffusion_v_1_4": {
+      "0": 6000,
+      "1": 6000
+    },
+    "stable_diffusion_v_1_5": {
+      "1": 8000
+    },
+    "VQDM": {
+      "1": 6000
+    },
+    "wukong": {
+      "1": 6000
+    }
+  }
+}

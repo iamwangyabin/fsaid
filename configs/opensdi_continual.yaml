@@ -1,0 +1,33 @@
+name: opensdi_continual_fewshot
+output_dir: outputs/opensdi_continual
+
+protocol:
+  manifest: data/manifests/opensdi.csv
+  stages: [SD1.5, SD2.1, SDXL, SD3, FLUX.1]
+  shots: [1, 5, 10]
+  seeds: [0, 1, 2]
+  query_per_class: null
+  cumulative_cache: true
+  evaluation_scope: seen
+  source_generators: [ADM, BigGAN, glide, Midjourney, VQDM]
+
+methods:
+  fsd:
+    checkpoint: checkpoints/fsd/source_without_opensdi.pth
+    device: cuda
+    batch_size: 64
+    fp16: true
+  ftnet:
+    device: cuda
+    backbone: ViT-L/14
+    clip_layer: 12
+    alpha: 15.0
+    batch_size: 64
+  ftnet_t:
+    device: cuda
+    backbone: ViT-L/14
+    clip_layer: 12
+    alpha: 15.0
+    epochs: 20
+    learning_rate: 0.001
+    batch_size: 32

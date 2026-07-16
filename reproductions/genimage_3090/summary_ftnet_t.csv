@@ -1,0 +1,2 @@
+method,shots,seed,adapt_stage,seen_mean_accuracy,seen_mean_average_precision,seen_mean_roc_auc
+ftnet_t,4,40,-1,0.8946368215159598,0.9572091487790901,0.9508077293214071

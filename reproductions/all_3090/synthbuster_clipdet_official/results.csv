@@ -1,0 +1,5 @@
+experiment,method,adaptation_mode,reproduction_scope,decision_threshold,shots,seed,adapt_stage,adapt_generator,eval_stage,eval_generator,n,accuracy,balanced_accuracy,real_accuracy,fake_accuracy,average_precision,roc_auc,f1
+synthbuster_clipdet_official,clipdet,evaluation_only,official_released_inference,0.0,0,0,-1,joint,0,DALL-E 2,2000,0.6795,0.6795,0.97,0.389,0.8639185688161084,0.862995,0.5482734319943622
+synthbuster_clipdet_official,clipdet,evaluation_only,official_released_inference,0.0,0,0,-1,joint,1,DALL-E 3,2000,0.74,0.74,0.97,0.51,0.9209334182468962,0.9286569999999998,0.6623376623376623
+synthbuster_clipdet_official,clipdet,evaluation_only,official_released_inference,0.0,0,0,-1,joint,2,Midjourney v5,2000,0.627,0.627,0.97,0.284,0.8118450407568953,0.816729,0.4322678843226788
+synthbuster_clipdet_official,clipdet,evaluation_only,official_released_inference,0.0,0,0,-1,joint,3,Adobe Firefly,2000,0.646,0.646,0.97,0.322,0.8628431109684211,0.8749040000000001,0.47633136094674555

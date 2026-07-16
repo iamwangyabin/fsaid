@@ -1,0 +1,33 @@
+name: opensdi_ftnet_table4_public_protocol
+output_dir: outputs/opensdi_ftnet_table4_official_sampling
+
+protocol:
+  manifest: data/manifests/opensdi_table4_seed40.csv
+  stages: [SD1.5, SD2.1, SDXL, SD3, FLUX.1]
+  # Table 4 uses eight real and eight fake samples from each generator.
+  shots: [8]
+  # FTNet did not release the exact Table 4 support file list. Seed 40 follows
+  # the released historical FTNet-T code and is saved in episode.json.
+  seeds: [40]
+  query_per_class: null
+  episode_mode: joint
+  cumulative_cache: true
+  evaluation_scope: current
+  source_generators: []
+
+methods:
+  ftnet:
+    device: cuda
+    backbone: ViT-L/14
+    clip_layer: 12
+    alpha: 15.0
+    batch_size: 64
+  ftnet_t:
+    device: cuda
+    backbone: ViT-L/14
+    clip_layer: 12
+    alpha: 15.0
+    epochs: 20
+    learning_rate: 0.001
+    batch_size: 32
+    num_workers: 4

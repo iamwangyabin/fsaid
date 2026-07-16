@@ -1,0 +1,29 @@
+name: opensdi_fixed_checkpoint_diagnostic
+output_dir: outputs/opensdi_evaluation_only
+
+protocol:
+  manifest: data/manifests/opensdi.csv
+  stages: [SD1.5, SD2.1, SDXL, SD3, FLUX.1]
+  # Fixed detectors do not consume support. Zero-shot keeps every image in query.
+  shots: [0]
+  seeds: [0]
+  query_per_class: null
+  episode_mode: joint
+  cumulative_cache: true
+  evaluation_scope: current
+  source_generators: []
+
+methods:
+  clipdet:
+    checkpoint: checkpoints/clipdet/clipdet_latent10k_plus.pth
+    backbone_checkpoint: checkpoints/backbones/open_clip_pytorch_model.bin
+    device: cuda:0
+    batch_size: 32
+  # Diagnostic only on OpenSDI: the official zero-shot training list contains
+  # FLUX_Dev, so this is not a strict all-generators-unseen OpenSDI result.
+  omnidfa_detection:
+    checkpoint: checkpoints/omnidfa/OmniDFA_zero_shot_epoch40.pth
+    device: cuda:0
+    dtype: bfloat16
+    batch_size: 64
+    seed: 0

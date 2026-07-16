@@ -1,0 +1,33 @@
+name: genimage_ftnet_table2_public_protocol
+output_dir: outputs/genimage_ftnet_paper_official_sampling
+
+protocol:
+  # Prepared with scripts/prepare_genimage.py --explicit-shots 4 --seed 40
+  # --filesystem-order to mirror the released Python random.sample loop.
+  manifest: data/manifests/genimage_paper_six_seed40.csv
+  stages: [ADM, BigGAN, glide, Midjourney, SD, VQDM]
+  # FTNet Table 2 uses four real and four fake samples from each generator.
+  shots: [4]
+  seeds: [40]
+  query_per_class: null
+  episode_mode: joint
+  cumulative_cache: true
+  evaluation_scope: current
+  source_generators: []
+
+methods:
+  ftnet:
+    device: cuda:0
+    backbone: ViT-L/14
+    clip_layer: 12
+    alpha: 15.0
+    batch_size: 64
+  ftnet_t:
+    device: cuda:0
+    backbone: ViT-L/14
+    clip_layer: 12
+    alpha: 15.0
+    epochs: 20
+    learning_rate: 0.001
+    batch_size: 32
+    num_workers: 4

@@ -1,0 +1,36 @@
+{
+  "dataset_root": "/home/yabin/projects/IAPL-GenImage/data/GenImage",
+  "manifest": "/home/yabin/projects/fsaid/data/manifests/genimage_paper_six_seed40.csv",
+  "support_manifest": "/home/yabin/projects/fsaid/data/manifests/genimage_paper_six_seed40.support.csv",
+  "view": "paper-six",
+  "rows": 100000,
+  "explicit_shots": 4,
+  "seed": 40,
+  "filesystem_order": true,
+  "counts": {
+    "ADM": {
+      "0": 6000,
+      "1": 6000
+    },
+    "BigGAN": {
+      "0": 6000,
+      "1": 6000
+    },
+    "Midjourney": {
+      "0": 6000,
+      "1": 6000
+    },
+    "SD": {
+      "0": 20000,
+      "1": 20000
+    },
+    "VQDM": {
+      "0": 6000,
+      "1": 6000
+    },
+    "glide": {
+      "0": 6000,
+      "1": 6000
+    }
+  }
+}

@@ -1,0 +1,30 @@
+name: opensdi_ftnet_smoke
+output_dir: outputs/opensdi_ftnet_smoke
+
+protocol:
+  manifest: data/manifests/opensdi_table4_seed40.csv
+  stages: [SD1.5, SD2.1, SDXL, SD3, FLUX.1]
+  shots: [8]
+  seeds: [40]
+  query_per_class: 15
+  episode_mode: joint
+  cumulative_cache: true
+  evaluation_scope: current
+  source_generators: []
+
+methods:
+  ftnet:
+    device: cuda
+    backbone: ViT-L/14
+    clip_layer: 12
+    alpha: 15.0
+    batch_size: 32
+  ftnet_t:
+    device: cuda
+    backbone: ViT-L/14
+    clip_layer: 12
+    alpha: 15.0
+    epochs: 20
+    learning_rate: 0.001
+    batch_size: 16
+    num_workers: 4

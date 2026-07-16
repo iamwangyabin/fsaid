@@ -1,0 +1,3 @@
+method,shots,seed,adapt_stage,seen_mean_accuracy,seen_mean_balanced_accuracy,seen_mean_average_precision,seen_mean_roc_auc
+clipdet,0,0,-1,0.63511,0.6351100000000001,0.8644358883679445,0.860744736
+omnidfa_detection,0,0,-1,0.76515,0.76515,0.8109674667761281,0.798049558

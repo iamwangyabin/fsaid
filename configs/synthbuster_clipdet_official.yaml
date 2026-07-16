@@ -1,0 +1,22 @@
+name: synthbuster_clipdet_official
+output_dir: outputs/synthbuster_clipdet_official
+
+protocol:
+  # Built from CLIPDet's official commercial_tools.csv. Each generator is
+  # evaluated against the same 1,000 RAISE images, matching compute_metrics.py.
+  manifest: data/manifests/synthbuster_clipdet_official.csv
+  stages: [DALL-E 2, DALL-E 3, Midjourney v5, Adobe Firefly]
+  shots: [0]
+  seeds: [0]
+  query_per_class: null
+  episode_mode: joint
+  cumulative_cache: false
+  evaluation_scope: current
+  source_generators: []
+
+methods:
+  clipdet:
+    checkpoint: checkpoints/clipdet/clipdet_latent10k_plus.pth
+    backbone_checkpoint: checkpoints/backbones/open_clip_pytorch_model.bin
+    device: cuda:0
+    batch_size: 32

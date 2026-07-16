@@ -1,0 +1,30 @@
+name: genimage_ftnet_smoke
+output_dir: outputs/genimage_ftnet_smoke_official_sampling
+
+protocol:
+  manifest: data/manifests/genimage_paper_six_seed40.csv
+  stages: [ADM, BigGAN, glide, Midjourney, SD, VQDM]
+  shots: [4]
+  seeds: [40]
+  query_per_class: 15
+  episode_mode: joint
+  cumulative_cache: true
+  evaluation_scope: current
+  source_generators: []
+
+methods:
+  ftnet:
+    device: cuda:0
+    backbone: ViT-L/14
+    clip_layer: 12
+    alpha: 15.0
+    batch_size: 32
+  ftnet_t:
+    device: cuda:0
+    backbone: ViT-L/14
+    clip_layer: 12
+    alpha: 15.0
+    epochs: 20
+    learning_rate: 0.001
+    batch_size: 16
+    num_workers: 4

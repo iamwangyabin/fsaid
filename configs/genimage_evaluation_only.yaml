@@ -1,0 +1,30 @@
+name: genimage_fixed_checkpoint_evaluation
+output_dir: outputs/genimage_evaluation_only
+
+protocol:
+  # Build this manifest from the official OmniDFA zero-shot real/fake lists
+  # and set generator=GenImage for every row to reproduce aggregate detection.
+  manifest: data/manifests/genimage_official_zero_shot.csv
+  stages: [GenImage]
+  shots: [0]
+  seeds: [0]
+  query_per_class: null
+  episode_mode: joint
+  cumulative_cache: false
+  evaluation_scope: current
+  source_generators: []
+
+methods:
+  clipdet:
+    checkpoint: checkpoints/clipdet/clipdet_latent10k_plus.pth
+    backbone_checkpoint: checkpoints/backbones/open_clip_pytorch_model.bin
+    device: cuda:0
+    batch_size: 32
+  # This is the checkpoint released specifically for the official GenImage /
+  # Chameleon zero-shot protocol, rather than one of the three OmniFake folds.
+  omnidfa_detection:
+    checkpoint: checkpoints/omnidfa/OmniDFA_zero_shot_epoch40.pth
+    device: cuda:0
+    dtype: bfloat16
+    batch_size: 64
+    seed: 0

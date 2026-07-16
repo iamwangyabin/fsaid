@@ -1,0 +1,27 @@
+name: genimage_shared_support_comparison_available_methods
+output_dir: outputs/genimage_leave_one_out_available
+
+protocol:
+  manifest: data/manifests/genimage.csv
+  stages: [Midjourney, glide, ADM, SD, VQDM, BigGAN]
+  shots: [10]
+  seeds: [42]
+  query_per_class: 15
+  cumulative_cache: false
+  evaluation_scope: current
+
+methods:
+  ftnet:
+    device: cuda
+    backbone: ViT-L/14
+    clip_layer: 12
+    alpha: 15.0
+    batch_size: 64
+  ftnet_t:
+    device: cuda
+    backbone: ViT-L/14
+    clip_layer: 12
+    alpha: 15.0
+    epochs: 20
+    learning_rate: 0.001
+    batch_size: 32

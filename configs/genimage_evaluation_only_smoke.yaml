@@ -1,0 +1,26 @@
+name: genimage_fixed_checkpoint_smoke
+output_dir: outputs/genimage_evaluation_only_smoke
+
+protocol:
+  manifest: data/manifests/genimage_official_zero_shot.csv
+  stages: [GenImage]
+  shots: [0]
+  seeds: [0]
+  query_per_class: 2
+  episode_mode: joint
+  cumulative_cache: false
+  evaluation_scope: current
+  source_generators: []
+
+methods:
+  clipdet:
+    checkpoint: checkpoints/clipdet/clipdet_latent10k_plus.pth
+    backbone_checkpoint: checkpoints/backbones/open_clip_pytorch_model.bin
+    device: cuda:0
+    batch_size: 2
+  omnidfa_detection:
+    checkpoint: checkpoints/omnidfa/OmniDFA_zero_shot_epoch40.pth
+    device: cuda:0
+    dtype: bfloat16
+    batch_size: 2
+    seed: 0

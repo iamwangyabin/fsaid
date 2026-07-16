@@ -1,0 +1,24 @@
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
+
+# Python caches and environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Packaging artifacts
+build/
+dist/
+*.egg-info/
+
+# Local experiment inputs and outputs
+checkpoints/
+outputs/
+data/*
+!data/manifests/
+!data/manifests/*.csv

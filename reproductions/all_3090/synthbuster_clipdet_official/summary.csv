@@ -1,0 +1,2 @@
+method,shots,seed,adapt_stage,seen_mean_accuracy,seen_mean_balanced_accuracy,seen_mean_average_precision,seen_mean_roc_auc
+clipdet,0,0,-1,0.673125,0.673125,0.8648850346970802,0.8708212499999999

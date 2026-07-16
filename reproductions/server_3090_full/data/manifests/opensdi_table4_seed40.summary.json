@@ -1,0 +1,35 @@
+{
+  "snapshot_root": "/home/yabin/projects/fsaid/data/huggingface/nebula/OpenSDI_test",
+  "snapshot_revision": "7e233eaf98fcfee4c74c788f0e34d06feb7ad0df",
+  "work_root": "/home/yabin/projects/fsaid/data/work/opensdi_test_images",
+  "manifest": "/home/yabin/projects/fsaid/data/manifests/opensdi_table4_seed40.csv",
+  "support_manifest": "/home/yabin/projects/fsaid/data/manifests/opensdi_table4_seed40.support.csv",
+  "rows": 100000,
+  "explicit_shots": 8,
+  "seed": 40,
+  "written_images": 100000,
+  "reused_images": 0,
+  "image_bytes": 18094245028,
+  "counts": {
+    "SD1.5": {
+      "0": 10000,
+      "1": 10000
+    },
+    "SD2.1": {
+      "0": 10000,
+      "1": 10000
+    },
+    "SDXL": {
+      "0": 10000,
+      "1": 10000
+    },
+    "SD3": {
+      "0": 10000,
+      "1": 10000
+    },
+    "FLUX.1": {
+      "0": 10000,
+      "1": 10000
+    }
+  }
+}
