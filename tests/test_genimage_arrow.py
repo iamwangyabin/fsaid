@@ -21,6 +21,8 @@ from genimage_arrow import (
         ("stable_diffusion_v_1_5/train/ai/a.png", ("train", "SD")),
         ("wukong/train/ai/a.png", ("train", "SD")),
         ("stable_diffusion_v_1_4/train/nature/a.jpg", ("train", "real")),
+        ("BigGAN/val/ai/a.png", ("train", "BigGAN")),
+        ("BigGAN/val/nature/a.jpg", None),
         ("ADM/train/nature/a.jpg", None),
     ],
 )
@@ -85,6 +87,8 @@ def test_builds_compact_index_and_reads_image_payload(tmp_path: Path) -> None:
     assert metadata["indexed_rows"] == len(rows)
     assert metadata["counts"]["train.SD"] == 1
     assert metadata["counts"]["val.SD"] == 1
+    assert metadata["counts"]["train.BigGAN"] == 2
+    assert metadata["counts"]["val.BigGAN"] == 0
     dataset = GenImageArrowClassDataset(
         arrow_root,
         index_root,

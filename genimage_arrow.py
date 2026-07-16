@@ -8,7 +8,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 
-GENIMAGE_ARROW_INDEX_VERSION = 1
+GENIMAGE_ARROW_INDEX_VERSION = 2
 GENIMAGE_ARROW_SHARDS = 1214
 GENIMAGE_FSD_CLASSES = ("real", "ADM", "BigGAN", "glide", "Midjourney", "SD", "VQDM")
 
@@ -36,6 +36,10 @@ def classify_genimage_arrow_path(image_path: str) -> tuple[str, str] | None:
     if split not in {"train", "val"}:
         return None
     if category == "ai" and source in _FAKE_SOURCE_CLASSES:
+        # The published Arrow train configuration contains BigGAN only under
+        # BigGAN/val, so expose those samples to FSD's logical training split.
+        if source == "BigGAN" and split == "val":
+            split = "train"
         return split, _FAKE_SOURCE_CLASSES[source]
     if category == "nature" and source in _REAL_SOURCES:
         return split, "real"
@@ -129,7 +133,11 @@ def build_genimage_arrow_index(
         raise ValueError(
             "Unmapped GenImage fake sources: " + ", ".join(sorted(unknown_fake_sources))
         )
-    empty = [f"{split}/{name}" for (split, name), rows in locators.items() if not rows]
+    empty = [
+        f"train/{name}"
+        for name in GENIMAGE_FSD_CLASSES
+        if not locators[("train", name)]
+    ]
     if empty and require_all_classes:
         raise ValueError(f"GenImage Arrow index has empty logical classes: {empty}")
 
