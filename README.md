@@ -292,6 +292,7 @@ python run.py train-fsd \
   --arrow-index data/huggingface/nebula/GenImage-arrow-9388290-complete/fsd_index \
   --output-dir checkpoints/fsd_without_sd \
   --exclude-class SD \
+  --pretrained-checkpoint /path/to/timm-resnet50.a1_in1k-model.safetensors \
   --device cuda:0 \
   --total-steps 200000
 ```
@@ -311,8 +312,14 @@ python scripts/run_genimage_fsd_campaign.py \
   --arrow-root data/huggingface/nebula/GenImage-arrow-9388290-complete \
   --arrow-index data/huggingface/nebula/GenImage-arrow-9388290-complete/fsd_index \
   --checkpoint-root checkpoints/fsd \
+  --workers 2 \
+  --pretrained-checkpoint /path/to/timm-resnet50.a1_in1k-model.safetensors \
+  --pretrained-sha256 773525d5821de224f8f30c33377b7a795d7863e08522698200d3217d3f2a41bb \
   --code-commit "$(git rev-parse HEAD)"
 ```
+
+3090主机只有15GiB内存和7.8GiB共享内存，因此正式campaign使用每个class loader
+两个worker。worker数量只影响数据预取，不改变episode、batch size或优化器设置。
 
 如果后续 OpenSDI 流中包含 SD1.5，应从 source training 排除 GenImage `SD`：
 

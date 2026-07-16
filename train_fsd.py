@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import random
@@ -10,6 +11,14 @@ from utils import ConfigurationError
 
 
 GENIMAGE_CLASSES = ("real", "ADM", "BigGAN", "glide", "Midjourney", "SD", "VQDM")
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while chunk := handle.read(16 * 1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def train_fsd(
@@ -27,6 +36,7 @@ def train_fsd(
     accumulation_steps: int = 1,
     log_interval: int = 1_000,
     resume_from: Path | None = None,
+    pretrained_checkpoint: Path | None = None,
 ) -> Path:
     """Native FSD episodic training with the released architecture and schedule."""
     if exclude_class not in GENIMAGE_CLASSES or exclude_class == "real":
@@ -53,6 +63,14 @@ def train_fsd(
         resume_from = resume_from.expanduser().resolve()
         if not resume_from.is_file():
             raise ConfigurationError(f"FSD resume checkpoint is missing: {resume_from}")
+    pretrained_hash: str | None = None
+    if pretrained_checkpoint is not None:
+        pretrained_checkpoint = pretrained_checkpoint.expanduser().absolute()
+        if not pretrained_checkpoint.is_file():
+            raise ConfigurationError(
+                f"FSD pretrained checkpoint is missing: {pretrained_checkpoint}"
+            )
+        pretrained_hash = _sha256(pretrained_checkpoint)
 
     try:
         import torch
@@ -145,8 +163,14 @@ def train_fsd(
             yield from loader
 
     streams = {name: iter(infinite_batches(name)) for name in class_names}
+    model_options = {}
+    if resume_from is None and pretrained_checkpoint is not None:
+        model_options["pretrained_cfg_overlay"] = {"file": str(pretrained_checkpoint)}
     model = timm.create_model(
-        "resnet50", pretrained=resume_from is None, num_classes=1024
+        "resnet50",
+        pretrained=resume_from is None,
+        num_classes=1024,
+        **model_options,
     ).to(target_device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, gamma=0.5, step_size=80_000)
@@ -161,8 +185,11 @@ def train_fsd(
         expected_resume_config = {
             "exclude_class": exclude_class,
             "seed": seed,
+            "workers": workers,
             "task_batch_size": task_batch_size,
             "accumulation_steps": accumulation_steps,
+            "data_format": resolved_data_format,
+            "pretrained_sha256": pretrained_hash,
         }
         incompatible = {
             key: (saved_config.get(key), value)
@@ -207,6 +234,10 @@ def train_fsd(
                 "config": {
                     "exclude_class": exclude_class,
                     "seed": seed,
+                    "workers": workers,
+                    "total_steps": total_steps,
+                    "save_interval": save_interval,
+                    "log_interval": log_interval,
                     "task_batch_size": task_batch_size,
                     "accumulation_steps": accumulation_steps,
                     "effective_task_batch_size": task_batch_size * accumulation_steps,
@@ -214,6 +245,12 @@ def train_fsd(
                     "support": 5,
                     "query": 5,
                     "learning_rate": 1e-4,
+                    "backbone": "resnet50",
+                    "pretrained": True,
+                    "pretrained_checkpoint": (
+                        str(pretrained_checkpoint) if pretrained_checkpoint is not None else None
+                    ),
+                    "pretrained_sha256": pretrained_hash,
                     "data_format": resolved_data_format,
                     "arrow_index": str(index_root) if index_root is not None else None,
                 },

@@ -497,6 +497,7 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument("--save-interval", type=int, default=10_000)
     train.add_argument("--log-interval", type=int, default=1_000)
     train.add_argument("--resume", type=Path)
+    train.add_argument("--pretrained-checkpoint", type=Path)
     train.add_argument(
         "--data-format",
         choices=("auto", "image-folder", "arrow"),
@@ -542,6 +543,7 @@ def main(argv: list[str] | None = None) -> None:
                 accumulation_steps=args.accumulation_steps,
                 log_interval=args.log_interval,
                 resume_from=args.resume,
+                pretrained_checkpoint=args.pretrained_checkpoint,
             )
             print(checkpoint)
     except BenchmarkError as exc:

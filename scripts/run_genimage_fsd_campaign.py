@@ -52,8 +52,10 @@ def validate_final_checkpoint(
     exclude_class: str,
     total_steps: int,
     seed: int,
+    workers: int,
     task_batch_size: int,
     accumulation_steps: int,
+    pretrained_sha256: str,
 ) -> dict[str, Any]:
     try:
         import torch
@@ -65,8 +67,11 @@ def validate_final_checkpoint(
         "step": total_steps,
         "exclude_class": exclude_class,
         "seed": seed,
+        "workers": workers,
         "task_batch_size": task_batch_size,
         "accumulation_steps": accumulation_steps,
+        "data_format": "arrow",
+        "pretrained_sha256": pretrained_sha256,
     }
     actual = {"step": payload.get("step"), **payload.get("config", {})}
     mismatches = {
@@ -120,6 +125,8 @@ def run_campaign(
     arrow_index: Path,
     checkpoint_root: Path,
     code_commit: str,
+    pretrained_checkpoint: Path,
+    pretrained_sha256: str,
     exclude_classes: Sequence[str] = DEFAULT_EXCLUDE_CLASSES,
     device: str = "cuda:0",
     workers: int = 8,
@@ -133,6 +140,18 @@ def run_campaign(
     verify_backends()
     if not code_commit.strip():
         raise ValueError("code_commit must be non-empty")
+    pretrained_checkpoint = pretrained_checkpoint.expanduser().absolute()
+    if not pretrained_checkpoint.is_file():
+        raise FileNotFoundError(
+            f"FSD pretrained checkpoint is missing: {pretrained_checkpoint}"
+        )
+    actual_pretrained_sha256 = sha256(pretrained_checkpoint)
+    if actual_pretrained_sha256 != pretrained_sha256:
+        raise ValueError(
+            "FSD pretrained checkpoint SHA-256 mismatch: "
+            f"expected {pretrained_sha256}, got {actual_pretrained_sha256}"
+        )
+    os.environ.setdefault("HF_HUB_OFFLINE", "1")
     if not exclude_classes or len(set(exclude_classes)) != len(exclude_classes):
         raise ValueError("exclude_classes must be non-empty and unique")
     allowed = set(GENIMAGE_CLASSES) - {"real"}
@@ -181,6 +200,7 @@ def run_campaign(
                 accumulation_steps=accumulation_steps,
                 log_interval=log_interval,
                 resume_from=resume_from,
+                pretrained_checkpoint=pretrained_checkpoint,
             )
             if produced.resolve() != final_checkpoint.resolve():
                 raise ValueError(
@@ -192,8 +212,10 @@ def run_campaign(
             exclude_class,
             total_steps,
             seed,
+            workers,
             task_batch_size,
             accumulation_steps,
+            pretrained_sha256,
         )
         checkpoint_hash = sha256(final_checkpoint)
         _install_alias(checkpoint_root / f"{exclude_class}.pth", final_checkpoint)
@@ -208,6 +230,7 @@ def run_campaign(
                 "checkpoint": str(final_checkpoint),
                 "checkpoint_sha256": checkpoint_hash,
                 "code_commit": code_commit,
+                "pretrained_sha256": pretrained_sha256,
             }
             mismatches = {
                 key: (summary.get(key), value)
@@ -223,6 +246,8 @@ def run_campaign(
                 "checkpoint": str(final_checkpoint),
                 "checkpoint_sha256": checkpoint_hash,
                 "code_commit": code_commit,
+                "pretrained_checkpoint": str(pretrained_checkpoint),
+                "pretrained_sha256": pretrained_sha256,
                 "completed_at": datetime.now(timezone.utc).isoformat(),
                 "training_config": config,
                 "arrow_revision": download_summary.get("revision"),
@@ -252,6 +277,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--arrow-index", required=True, type=Path)
     parser.add_argument("--checkpoint-root", required=True, type=Path)
     parser.add_argument("--code-commit", required=True)
+    parser.add_argument("--pretrained-checkpoint", required=True, type=Path)
+    parser.add_argument("--pretrained-sha256", required=True)
     parser.add_argument(
         "--exclude-class",
         action="append",
@@ -276,6 +303,8 @@ def main() -> None:
         args.arrow_index,
         args.checkpoint_root,
         args.code_commit,
+        args.pretrained_checkpoint,
+        args.pretrained_sha256,
         exclude_classes=args.exclude_classes or DEFAULT_EXCLUDE_CLASSES,
         device=args.device,
         workers=args.workers,
