@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -9,6 +11,7 @@ from scripts.download_genimage_train import (
     TOTAL_SHARDS,
     _assert_separate,
     _configure_hf_environment,
+    _download_missing,
     build_combined_view,
     find_missing_shards,
     shard_name,
@@ -27,6 +30,39 @@ def test_configures_resumable_hf_timeouts_without_overriding_user_values(
     assert os.environ["HF_HUB_DISABLE_XET"] == "1"
     assert os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] == "600"
     assert os.environ["HF_HUB_ETAG_TIMEOUT"] == "90"
+
+
+def test_download_round_attempts_every_shard_before_reporting_failures(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    attempted = []
+
+    def fake_download(repo_id: str, *, filename: str, **kwargs: object) -> None:
+        attempted.append((repo_id, filename, kwargs))
+        if filename.endswith("bad.arrow"):
+            raise OSError("mirror unavailable?token=secret")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "huggingface_hub",
+        SimpleNamespace(hf_hub_download=fake_download),
+    )
+
+    with pytest.raises(RuntimeError, match="bad.arrow"):
+        _download_missing(
+            "example/repo",
+            "revision",
+            "https://mirror.example",
+            tmp_path,
+            ["first.arrow", "bad.arrow", "last.arrow"],
+            workers=2,
+        )
+
+    assert sorted(filename for _, filename, _ in attempted) == [
+        "train/bad.arrow",
+        "train/first.arrow",
+        "train/last.arrow",
+    ]
 
 
 def test_builds_complete_symlink_view_without_modifying_existing(tmp_path: Path) -> None:

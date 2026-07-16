@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import shutil
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 
@@ -104,19 +105,43 @@ def _download_missing(
 ) -> None:
     _configure_hf_environment()
     try:
-        from huggingface_hub import snapshot_download
+        from huggingface_hub import hf_hub_download
     except ImportError as exc:
         raise RuntimeError("Download requires huggingface_hub") from exc
 
-    snapshot_download(
-        repo_id,
-        repo_type="dataset",
-        revision=revision,
-        endpoint=endpoint,
-        local_dir=download_root,
-        allow_patterns=[f"train/{name}" for name in missing],
-        max_workers=workers,
-    )
+    def download_one(name: str) -> None:
+        hf_hub_download(
+            repo_id,
+            filename=f"train/{name}",
+            repo_type="dataset",
+            revision=revision,
+            endpoint=endpoint,
+            local_dir=download_root,
+        )
+
+    failures: list[str] = []
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {executor.submit(download_one, name): name for name in missing}
+        for position, future in enumerate(as_completed(futures), start=1):
+            name = futures[future]
+            try:
+                future.result()
+            except Exception as exc:  # noqa: BLE001 - keep trying independent shards
+                failures.append(name)
+                message = str(exc).splitlines()[0].split("?")[0][:240]
+                print(
+                    f"failed {position}/{len(missing)} {name}: "
+                    f"{type(exc).__name__}: {message}",
+                    flush=True,
+                )
+            else:
+                print(f"downloaded {position}/{len(missing)} {name}", flush=True)
+
+    if failures:
+        preview = ", ".join(sorted(failures)[:10])
+        raise RuntimeError(
+            f"Download round left {len(failures)} shards incomplete: {preview}"
+        )
 
 
 def _sha256(path: Path) -> str:
