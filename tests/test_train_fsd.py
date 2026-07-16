@@ -13,6 +13,9 @@ from utils import ConfigurationError
         ({"task_batch_size": 0}, "task_batch_size"),
         ({"workers": -1}, "workers"),
         ({"save_interval": 0}, "save_interval"),
+        ({"accumulation_steps": 0}, "accumulation_steps"),
+        ({"log_interval": 0}, "log_interval"),
+        ({"data_format": "unsupported"}, "data_format"),
     ],
 )
 def test_invalid_training_counts_fail_before_loading_optional_dependencies(

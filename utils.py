@@ -41,7 +41,8 @@ METHODS = (
         reference_commit="b545c05f3c927ef67c1b00f9a8badf3b68c5f4b3",
         file_hashes={
             "methods/fsd.py": "470fdb342722972a76791efc1bff64a7585c4233df9c05222ee036b45572db24",
-            "train_fsd.py": "69e9f8ade246a2f31cd2c42e3c48952681b1cc1eaaf374f78c21e32412d936a7",
+            "genimage_arrow.py": "b8eec347657587b59fd199d131637eda7cf42d3241f9fde4a56c78e149edd914",
+            "train_fsd.py": "e49800556649e5072a0a1374010839c94b2fd75cf8f0f75d3a57a0185fca1aa0",
         },
     ),
     IntegratedMethod(

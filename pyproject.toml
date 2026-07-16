@@ -41,7 +41,15 @@ dev = ["pytest>=8", "ruff>=0.6"]
 aigcd = "run:main"
 
 [tool.setuptools]
-py-modules = ["run", "config", "data", "models", "utils", "train_fsd"]
+py-modules = [
+  "run",
+  "config",
+  "data",
+  "genimage_arrow",
+  "models",
+  "utils",
+  "train_fsd",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]

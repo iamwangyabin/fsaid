@@ -281,6 +281,27 @@ data/GenImage/
 └── VQDM/train/ai/
 ```
 
+完整GenImage Arrow约600GB，不需要再物化一份同等大小的ImageFolder。框架会从
+`image_path`建立小型行索引，内存映射读取图片二进制，并按官方目录规则把SD1.4、
+SD1.5和Wukong合并为`SD`；`real`只取SD1.4/SD1.5的`nature`图片：
+
+```bash
+python run.py train-fsd \
+  --data-root data/huggingface/nebula/GenImage-arrow-9388290-complete \
+  --data-format arrow \
+  --arrow-index data/huggingface/nebula/GenImage-arrow-9388290-complete/fsd_index \
+  --output-dir checkpoints/fsd_without_sd \
+  --exclude-class SD \
+  --device cuda:0 \
+  --total-steps 200000
+```
+
+首次运行会扫描`image_path`列并生成索引，但不会读取、复制或解压全部图片负载。
+训练会定期输出JSON进度并保存模型、优化器、scheduler、scaler和随机状态。中断后可
+通过`--resume checkpoints/.../resnet50_step_N.pth`继续。显存不足时可以减小
+`--batch-size`并增加`--accumulation-steps`；这会保持有效task batch，但因
+BatchNorm的micro-batch统计不同，必须把它标成显存适配重跑，而不是逐位等价运行。
+
 如果后续 OpenSDI 流中包含 SD1.5，应从 source training 排除 GenImage `SD`：
 
 ```bash

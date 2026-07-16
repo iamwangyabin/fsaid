@@ -30,6 +30,16 @@
 - StepLR，gamma `0.5`，step size `80,000`；
 - 测试阶段不更新 encoder。
 
+GenImage既可以使用官方ImageFolder逻辑视图，也可以直接使用完整Arrow快照。Arrow
+索引只保存`shard,row`定位，不复制图片；ADM、BigGAN、GLIDE、Midjourney、VQDM
+选取各自`ai`行，SD合并SD1.4、SD1.5与Wukong的`ai`行，real只选取SD1.4和
+SD1.5的`nature`行。这改变存储访问方式，不改变episode类别或图像变换。
+
+训练checkpoint额外保存优化器、scheduler、scaler和CPU/CUDA随机状态并支持续跑。
+恢复后DataLoader会重新建立shuffle迭代器，因此恢复运行不是中断前样本游标的逐位
+延续。可选梯度累积用于单卡显存适配；启用时BatchNorm统计按micro-batch计算，结果
+必须与官方默认batch运行分开标注。
+
 已知 paper/code 差异：论文描述测试时 resize 后 center crop，但公开代码的验证
 transform 只有 `CenterCrop(224) + ToTensor()`。框架采用公开代码行为。
 

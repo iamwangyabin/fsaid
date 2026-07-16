@@ -493,6 +493,16 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument("--seed", type=int, default=42)
     train.add_argument("--total-steps", type=int, default=200_000)
     train.add_argument("--batch-size", type=int, default=16)
+    train.add_argument("--accumulation-steps", type=int, default=1)
+    train.add_argument("--save-interval", type=int, default=10_000)
+    train.add_argument("--log-interval", type=int, default=1_000)
+    train.add_argument("--resume", type=Path)
+    train.add_argument(
+        "--data-format",
+        choices=("auto", "image-folder", "arrow"),
+        default="auto",
+    )
+    train.add_argument("--arrow-index", type=Path)
     return parser
 
 
@@ -526,6 +536,12 @@ def main(argv: list[str] | None = None) -> None:
                 args.seed,
                 args.total_steps,
                 args.batch_size,
+                args.save_interval,
+                data_format=args.data_format,
+                arrow_index=args.arrow_index,
+                accumulation_steps=args.accumulation_steps,
+                log_interval=args.log_interval,
+                resume_from=args.resume,
             )
             print(checkpoint)
     except BenchmarkError as exc:
