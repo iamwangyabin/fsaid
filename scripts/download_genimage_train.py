@@ -17,6 +17,12 @@ DEFAULT_ENDPOINT = "https://alpha.hf-mirror.com"
 TOTAL_SHARDS = 1214
 
 
+def _configure_hf_environment() -> None:
+    os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
+    os.environ.setdefault("HF_HUB_DOWNLOAD_TIMEOUT", "600")
+    os.environ.setdefault("HF_HUB_ETAG_TIMEOUT", "60")
+
+
 def shard_name(index: int) -> str:
     return f"data-{index:05d}-of-{TOTAL_SHARDS:05d}.arrow"
 
@@ -45,7 +51,7 @@ def find_missing_shards(existing_train_root: Path) -> list[str]:
 def _repo_shard_metadata(
     repo_id: str, revision: str, endpoint: str
 ) -> dict[str, dict[str, object]]:
-    os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
+    _configure_hf_environment()
     try:
         from huggingface_hub import HfApi
     except ImportError as exc:
@@ -96,7 +102,7 @@ def _download_missing(
     missing: list[str],
     workers: int,
 ) -> None:
-    os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
+    _configure_hf_environment()
     try:
         from huggingface_hub import snapshot_download
     except ImportError as exc:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -7,10 +8,25 @@ import pytest
 from scripts.download_genimage_train import (
     TOTAL_SHARDS,
     _assert_separate,
+    _configure_hf_environment,
     build_combined_view,
     find_missing_shards,
     shard_name,
 )
+
+
+def test_configures_resumable_hf_timeouts_without_overriding_user_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("HF_HUB_DISABLE_XET", raising=False)
+    monkeypatch.delenv("HF_HUB_DOWNLOAD_TIMEOUT", raising=False)
+    monkeypatch.setenv("HF_HUB_ETAG_TIMEOUT", "90")
+
+    _configure_hf_environment()
+
+    assert os.environ["HF_HUB_DISABLE_XET"] == "1"
+    assert os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] == "600"
+    assert os.environ["HF_HUB_ETAG_TIMEOUT"] == "90"
 
 
 def test_builds_complete_symlink_view_without_modifying_existing(tmp_path: Path) -> None:
