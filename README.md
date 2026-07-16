@@ -302,6 +302,18 @@ python run.py train-fsd \
 `--batch-size`并增加`--accumulation-steps`；这会保持有效task batch，但因
 BatchNorm的micro-batch统计不同，必须把它标成显存适配重跑，而不是逐位等价运行。
 
+完整数据校验和Arrow索引完成后，可以运行六个leave-one-generator-out模型的可恢复
+campaign。默认先训练`SD`，从而优先产出OpenSDI无泄漏source权重；每个模型会从
+最新的原子checkpoint继续，并为现有配置创建`checkpoints/fsd/{stage}.pth`别名：
+
+```bash
+python scripts/run_genimage_fsd_campaign.py \
+  --arrow-root data/huggingface/nebula/GenImage-arrow-9388290-complete \
+  --arrow-index data/huggingface/nebula/GenImage-arrow-9388290-complete/fsd_index \
+  --checkpoint-root checkpoints/fsd \
+  --code-commit "$(git rev-parse HEAD)"
+```
+
 如果后续 OpenSDI 流中包含 SD1.5，应从 source training 排除 GenImage `SD`：
 
 ```bash

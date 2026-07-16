@@ -36,6 +36,8 @@ GenImage既可以使用官方ImageFolder逻辑视图，也可以直接使用完�
 SD1.5的`nature`行。这改变存储访问方式，不改变episode类别或图像变换。
 
 训练checkpoint额外保存优化器、scheduler、scaler和CPU/CUDA随机状态并支持续跑。
+checkpoint先写入`.partial`文件，再通过原子替换发布，campaign只会选择完整命名的
+checkpoint，并校验最终step、配置与SHA-256后创建评测别名。
 恢复后DataLoader会重新建立shuffle迭代器，因此恢复运行不是中断前样本游标的逐位
 延续。可选梯度累积用于单卡显存适配；启用时BatchNorm统计按micro-batch计算，结果
 必须与官方默认batch运行分开标注。

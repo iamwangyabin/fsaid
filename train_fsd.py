@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import random
 import time
 from pathlib import Path
@@ -195,6 +196,7 @@ def train_fsd(
 
     def save(step: int) -> Path:
         checkpoint = output_dir / f"resnet50_step_{step}.pth"
+        temporary = checkpoint.with_name(checkpoint.name + ".partial")
         torch.save(
             {
                 "step": step,
@@ -219,8 +221,9 @@ def train_fsd(
                 "torch_rng_state": torch.get_rng_state(),
                 "cuda_rng_state_all": torch.cuda.get_rng_state_all() if fp16 else None,
             },
-            checkpoint,
+            temporary,
         )
+        os.replace(temporary, checkpoint)
         return checkpoint
 
     if start_step > total_steps:
