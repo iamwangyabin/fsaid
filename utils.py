@@ -42,7 +42,7 @@ METHODS = (
         file_hashes={
             "methods/fsd.py": "470fdb342722972a76791efc1bff64a7585c4233df9c05222ee036b45572db24",
             "genimage_arrow.py": "f55c599896ad37258cd7e31d31ab431677b13f2be82eecb6cec4f3a30174c40d",
-            "train_fsd.py": "0a7adcf48160660f4b4eb691df337297cc0121a69738444b34d0300907858ca3",
+            "train_fsd.py": "1b8ec85ac89fce9fcf5af5855a70b03bd91966fced188bd21b6c84fbead052a4",
         },
     ),
     IntegratedMethod(

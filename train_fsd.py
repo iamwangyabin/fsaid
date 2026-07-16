@@ -289,9 +289,25 @@ def train_fsd(
                 loss, _ = prototypical_loss(embeddings, labels, support_num=5)
             scaler.scale(loss / accumulation_steps).backward()
             mean_loss += loss.item() / accumulation_steps
+        scale_before = scaler.get_scale()
         scaler.step(optimizer)
         scaler.update()
-        scheduler.step()
+        scale_after = scaler.get_scale()
+        optimizer_stepped = not fp16 or scale_after >= scale_before
+        if optimizer_stepped:
+            scheduler.step()
+        else:
+            print(
+                json.dumps(
+                    {
+                        "event": "optimizer_step_skipped",
+                        "step": step,
+                        "scale_before": scale_before,
+                        "scale_after": scale_after,
+                    }
+                ),
+                flush=True,
+            )
         if step == start_step or step % log_interval == 0:
             elapsed = time.monotonic() - started_at
             completed = step - start_step + 1
