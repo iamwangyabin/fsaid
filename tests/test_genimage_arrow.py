@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from io import BytesIO
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from genimage_arrow import (
     GenImageArrowClassDataset,
     build_genimage_arrow_index,
     classify_genimage_arrow_path,
+    load_genimage_arrow_index,
 )
 
 
@@ -21,7 +23,7 @@ from genimage_arrow import (
         ("stable_diffusion_v_1_5/train/ai/a.png", ("train", "SD")),
         ("wukong/train/ai/a.png", ("train", "SD")),
         ("stable_diffusion_v_1_4/train/nature/a.jpg", ("train", "real")),
-        ("BigGAN/val/ai/a.png", ("train", "BigGAN")),
+        ("BigGAN/val/ai/a.png", ("val", "BigGAN")),
         ("BigGAN/val/nature/a.jpg", None),
         ("ADM/train/nature/a.jpg", None),
     ],
@@ -30,6 +32,17 @@ def test_classifies_official_fsd_logical_views(
     image_path: str, expected: tuple[str, str] | None
 ) -> None:
     assert classify_genimage_arrow_path(image_path) == expected
+
+
+def test_rejects_index_created_with_split_remapping(tmp_path: Path) -> None:
+    index_root = tmp_path / "index"
+    index_root.mkdir()
+    (index_root / "metadata.json").write_text(
+        json.dumps({"format_version": 2}), encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="Unsupported GenImage Arrow index format: 2"):
+        load_genimage_arrow_index(tmp_path / "arrow", index_root, expected_shards=1)
 
 
 def _png_bytes() -> bytes:
@@ -87,8 +100,8 @@ def test_builds_compact_index_and_reads_image_payload(tmp_path: Path) -> None:
     assert metadata["indexed_rows"] == len(rows)
     assert metadata["counts"]["train.SD"] == 1
     assert metadata["counts"]["val.SD"] == 1
-    assert metadata["counts"]["train.BigGAN"] == 2
-    assert metadata["counts"]["val.BigGAN"] == 0
+    assert metadata["counts"]["train.BigGAN"] == 1
+    assert metadata["counts"]["val.BigGAN"] == 1
     dataset = GenImageArrowClassDataset(
         arrow_root,
         index_root,

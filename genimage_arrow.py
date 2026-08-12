@@ -8,7 +8,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 
-GENIMAGE_ARROW_INDEX_VERSION = 2
+GENIMAGE_ARROW_INDEX_VERSION = 3
 GENIMAGE_ARROW_SHARDS = 1214
 GENIMAGE_FSD_CLASSES = ("real", "ADM", "BigGAN", "glide", "Midjourney", "SD", "VQDM")
 
@@ -28,7 +28,7 @@ _REAL_SOURCES = {"stable_diffusion_v_1_4", "stable_diffusion_v_1_5"}
 
 
 def classify_genimage_arrow_path(image_path: str) -> tuple[str, str] | None:
-    """Map a raw GenImage path to the logical FSD split and source class."""
+    """Index a raw GenImage path without changing its recorded split."""
     parts = PurePosixPath(image_path).parts
     if len(parts) < 3:
         return None
@@ -36,10 +36,6 @@ def classify_genimage_arrow_path(image_path: str) -> tuple[str, str] | None:
     if split not in {"train", "val"}:
         return None
     if category == "ai" and source in _FAKE_SOURCE_CLASSES:
-        # The published Arrow train configuration contains BigGAN only under
-        # BigGAN/val, so expose those samples to FSD's logical training split.
-        if source == "BigGAN" and split == "val":
-            split = "train"
         return split, _FAKE_SOURCE_CLASSES[source]
     if category == "nature" and source in _REAL_SOURCES:
         return split, "real"
