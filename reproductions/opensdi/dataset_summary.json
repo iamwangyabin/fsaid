@@ -1,14 +1,6 @@
 {
-  "snapshot_root": "/home/yabin/projects/fsaid/data/huggingface/nebula/OpenSDI_test",
   "snapshot_revision": "7e233eaf98fcfee4c74c788f0e34d06feb7ad0df",
-  "work_root": "/home/yabin/projects/fsaid/data/work/opensdi_test_images",
-  "manifest": "/home/yabin/projects/fsaid/data/manifests/opensdi.csv",
-  "support_manifest": null,
   "rows": 100000,
-  "explicit_shots": null,
-  "seed": null,
-  "written_images": 0,
-  "reused_images": 100000,
   "image_bytes": 18094245028,
   "counts": {
     "SD1.5": {

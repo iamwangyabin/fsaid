@@ -1,6 +1,4 @@
 {
-  "dataset_root": "/home/yabin/projects/IAPL-GenImage/data/GenImage",
-  "manifest": "/home/yabin/projects/fsaid/data/manifests/genimage_official_zero_shot.csv",
   "view": "omnidfa-zero-shot",
   "rows": 56000,
   "filesystem_order": true,

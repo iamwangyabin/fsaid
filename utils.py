@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import math
-import hashlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Iterable, Sequence
 
 import numpy as np
 from sklearn.metrics import accuracy_score, average_precision_score, f1_score, roc_auc_score
+
+from file_io import sha256_file
 
 
 class BenchmarkError(RuntimeError):
@@ -27,56 +28,54 @@ class ProvenanceError(BenchmarkError):
 
 
 @dataclass(frozen=True)
-class IntegratedMethod:
-    name: str
+class ImplementationLock:
+    methods: tuple[str, ...]
+    display_name: str
     reference_repository: str
     reference_commit: str
     file_hashes: dict[str, str]
 
 
-METHODS = (
-    IntegratedMethod(
-        name="FSD",
+IMPLEMENTATION_LOCKS = (
+    ImplementationLock(
+        methods=("fsd",),
+        display_name="FSD",
         reference_repository="teheperinko541/Few-Shot-AIGI-Detector",
         reference_commit="b545c05f3c927ef67c1b00f9a8badf3b68c5f4b3",
         file_hashes={
-            "methods/fsd.py": "470fdb342722972a76791efc1bff64a7585c4233df9c05222ee036b45572db24",
-            "genimage_arrow.py": "f55c599896ad37258cd7e31d31ab431677b13f2be82eecb6cec4f3a30174c40d",
-            "train_fsd.py": "1b8ec85ac89fce9fcf5af5855a70b03bd91966fced188bd21b6c84fbead052a4",
+            "methods/fsd.py": "cfaf77fd1305e3a74d79f8a23644a60534f049ea281dd635f866f846aa68be05",
+            "genimage_arrow.py": "eb73ab51f0c5e1bbc440f38cf9299aaab92677a67b2b71562340a82ab184416e",
+            "train_fsd.py": "d052ad5b1f8f34641a2853872a317e1599703aa92f12967a98014e1042ce44dc",
         },
     ),
-    IntegratedMethod(
-        name="FTNet",
+    ImplementationLock(
+        methods=("ftnet", "ftnet_t"),
+        display_name="FTNet / FTNet-T",
         reference_repository="zuiluorenjian/FTNet",
         reference_commit="139348d3a7627160cdfb1e4f537986bdf3c007f4",
         file_hashes={
             "models.py": "0dff9bf26c16b754da20c621ff9f4fc9b8d0ac8fc0af2d04d761dfc2c1c65ce9",
-            "methods/ftnet.py": "31673d84a4724c4993d5d9072a6651bd8a113c3e02340d703f4f7d2705542b80",
+            "methods/ftnet.py": "bebc3fbe3521d0bff1be1fac866b172b9bccc19068273d04aa6fc0017097f6de",
         },
     ),
-    IntegratedMethod(
-        name="FTNet-T",
-        reference_repository="zuiluorenjian/FTNet",
-        reference_commit="139348d3a7627160cdfb1e4f537986bdf3c007f4",
-        file_hashes={
-            "models.py": "0dff9bf26c16b754da20c621ff9f4fc9b8d0ac8fc0af2d04d761dfc2c1c65ce9",
-            "methods/ftnet.py": "31673d84a4724c4993d5d9072a6651bd8a113c3e02340d703f4f7d2705542b80",
-        },
-    ),
-    IntegratedMethod(
-        name="CLIPDet-eval",
+    ImplementationLock(
+        methods=("clipdet",),
+        display_name="CLIPDet-eval",
         reference_repository="grip-unina/ClipBased-SyntheticImageDetection",
         reference_commit="c76ef7f5e158c5aba9e55b8b94ab0079720d281e",
         file_hashes={
-            "methods/clipdet.py": "90361d0c71c7836d91f22990fbc6dc0e76d3843c69b81e0cae372de555f63b06",
+            "methods/base.py": "62394cd07960aa5ccc9716d3a6ab14473a81f4e91ddf3ad29ce8eda5e4591337",
+            "methods/clipdet.py": "dd3f0f2c48d1361aabb577b8c8c16c31e5575a4eeb38394c91b931d62bd3bb5c",
         },
     ),
-    IntegratedMethod(
-        name="OmniDFA-Detection-eval",
+    ImplementationLock(
+        methods=("omnidfa_detection",),
+        display_name="OmniDFA-Detection-eval",
         reference_repository="teheperinko541/OmniDFA",
         reference_commit="35b9052e83e05436682095818693493f79da9458",
         file_hashes={
-            "methods/omnidfa.py": "ce4d7892d3799ba078d2ac305f0437e950166b6cd827ce4aa909a0ea003f84bc",
+            "methods/base.py": "62394cd07960aa5ccc9716d3a6ab14473a81f4e91ddf3ad29ce8eda5e4591337",
+            "methods/omnidfa.py": "d3ee8d928fa2d850e855fdeab44b6e1ec5d7cdd34b83d25f1051fb469f3b48c2",
         },
     ),
 )
@@ -86,42 +85,42 @@ def repository_root() -> Path:
     return Path(__file__).resolve().parent
 
 
-def verify_backends(root: Path | None = None, strict: bool = True) -> list[dict[str, object]]:
+def verify_backends(
+    root: Path | None = None,
+    strict: bool = True,
+    methods: Iterable[str] | None = None,
+) -> list[dict[str, object]]:
     repo = root or repository_root()
+    selected = set(methods) if methods is not None else None
     results: list[dict[str, object]] = []
     failures = []
-    for method in METHODS:
+    for implementation in IMPLEMENTATION_LOCKS:
+        if selected is not None and selected.isdisjoint(implementation.methods):
+            continue
         hash_status = {}
-        for relative_path, expected in method.file_hashes.items():
+        for relative_path, expected in implementation.file_hashes.items():
             path = repo / relative_path
-            actual = _sha256(path) if path.is_file() else None
-            hash_status[relative_path] = expected != "TO_BE_LOCKED" and actual == expected
+            actual = sha256_file(path) if path.is_file() else None
+            hash_status[relative_path] = actual == expected
         ok = all(hash_status.values())
         results.append(
             {
-                "name": method.name,
+                "name": implementation.display_name,
+                "methods": list(implementation.methods),
                 "implementation": "integrated",
-                "reference_repository": method.reference_repository,
-                "reference_commit": method.reference_commit,
+                "reference_repository": implementation.reference_repository,
+                "reference_commit": implementation.reference_commit,
                 "file_hashes": hash_status,
                 "ok": ok,
             }
         )
         if not ok:
-            failures.append(method.name)
+            failures.append(implementation.display_name)
     if failures and strict:
         raise ProvenanceError(
             "Integrated method files differ from the implementation lock: " + ", ".join(failures)
         )
     return results
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def binary_metrics(

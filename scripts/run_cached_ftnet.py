@@ -9,17 +9,16 @@ import json
 import os
 import sys
 from pathlib import Path
-from types import MethodType
-from typing import Any, Sequence
+from typing import Any, Sequence, cast
 
 import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from config import ExperimentConfig, load_config
-from data import Sample, load_manifest
-from methods.base import FewShotMethod
-from run import _create_method, _run_plan, _write_results, validate_experiment
+from data import Sample
+from methods.ftnet import FTNetMethod
+from run import create_method, prepare_experiment, run_plan, write_episode_plans, write_results
 from utils import verify_backends
 
 
@@ -41,29 +40,8 @@ def feature_signature(
     return digest.hexdigest()
 
 
-def install_feature_cache(
-    method: FewShotMethod,
-    identities: Sequence[str],
-    features: torch.Tensor,
-) -> None:
-    if features.ndim != 2 or features.shape[0] != len(identities):
-        raise ValueError("Feature cache dimensions do not match its identity list")
-    if len(set(identities)) != len(identities):
-        raise ValueError("Feature cache identity list contains duplicates")
-    positions = {identity: index for index, identity in enumerate(identities)}
-
-    def cached_extract(self, selected: Sequence[Sample]) -> torch.Tensor:
-        try:
-            indices = [positions[sample.identity] for sample in selected]
-        except KeyError as exc:
-            raise ValueError(f"Feature cache is missing sample {exc.args[0]}") from exc
-        return features[indices].to(self.device)
-
-    method._extract = MethodType(cached_extract, method)  # type: ignore[attr-defined]
-
-
 def build_or_load_cache(
-    method: FewShotMethod,
+    method: FTNetMethod,
     config: ExperimentConfig,
     samples: Sequence[Sample],
     cache_path: Path,
@@ -85,7 +63,7 @@ def build_or_load_cache(
     outputs = []
     for offset in range(0, len(samples), extraction_chunk_size):
         chunk = samples[offset : offset + extraction_chunk_size]
-        extracted = method._extract(chunk)  # type: ignore[attr-defined]
+        extracted = method.encode_samples(chunk)
         outputs.append(extracted.detach().cpu())
         print(
             json.dumps(
@@ -120,28 +98,32 @@ def run_cached(
     cache_path: Path,
     extraction_chunk_size: int = 1024,
 ) -> list[dict[str, Any]]:
-    verify_backends()
     config = load_config(config_path)
     unknown = set(selected_methods) - set(METHODS)
     if unknown:
         raise ValueError(f"Unsupported cached methods: {sorted(unknown)}")
     if extraction_chunk_size <= 0:
         raise ValueError("extraction_chunk_size must be positive")
-    plans = validate_experiment(config)
-    manifest_samples = load_manifest(config.protocol.manifest)
-    samples_by_identity = {sample.identity: sample for sample in manifest_samples}
-    needed_identities = dict.fromkeys(
-        sample.identity
-        for plan in plans
+    verify_backends(methods=selected_methods)
+    prepared = prepare_experiment(config)
+    needed_samples = {
+        sample.identity: sample
+        for plan in prepared.plans
         for stage in plan.stages
         for sample in (*stage.support, *stage.query)
-    )
-    samples = [samples_by_identity[identity] for identity in needed_identities]
+    }
+    samples = list(needed_samples.values())
+    signatures = {
+        feature_signature(config, samples, method_name) for method_name in selected_methods
+    }
+    if len(signatures) != 1:
+        raise ValueError("Selected FTNet methods do not share one encoder configuration")
+    write_episode_plans(config, prepared.plans)
     records: list[dict[str, Any]] = []
     cached_payload: tuple[list[str], torch.Tensor] | None = None
 
     for method_name in selected_methods:
-        method = _create_method(method_name, config)
+        method = cast(FTNetMethod, create_method(method_name, config))
         try:
             if cached_payload is None:
                 cached_payload = build_or_load_cache(
@@ -153,13 +135,13 @@ def run_cached(
                     method_name,
                 )
             identities, features = cached_payload
-            install_feature_cache(method, identities, features)
-            for plan in plans:
-                records.extend(_run_plan(config, plan, method))
+            method.set_feature_cache(identities, features)
+            for plan in prepared.plans:
+                records.extend(run_plan(config, plan, method))
         finally:
             method.close()
 
-    _write_results(config.output_dir, records)
+    write_results(config.output_dir, records)
     return records
 
 

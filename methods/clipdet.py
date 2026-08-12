@@ -8,7 +8,7 @@ import torch.nn as nn
 from PIL import Image
 
 from data import Sample
-from methods.base import FewShotMethod
+from methods.base import EvaluationOnlyMethod
 from utils import ConfigurationError
 
 
@@ -76,11 +76,10 @@ class OpenClipLinear(nn.Module):
         return self.fc(self.forward_features(x))
 
 
-class CLIPDetMethod(FewShotMethod):
+class CLIPDetMethod(EvaluationOnlyMethod):
     """Evaluation-only integration of the released CLIP detector."""
 
     name = "clipdet"
-    adaptation_mode = "evaluation_only"
     decision_threshold = 0.0
     reproduction_scope = "official_released_inference"
 
@@ -135,15 +134,6 @@ class CLIPDetMethod(FewShotMethod):
         else:
             state_dict = payload
         self.model.load_state_dict(state_dict)
-
-    def adapt(
-        self,
-        generator: str,
-        stage_support: Sequence[Sample],
-        cumulative_support: Sequence[Sample],
-        artifact_dir: Path,
-    ) -> None:
-        del generator, stage_support, cumulative_support, artifact_dir
 
     @torch.no_grad()
     def predict_fake_probability(self, generator: str, samples: Sequence[Sample]) -> list[float]:

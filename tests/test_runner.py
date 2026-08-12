@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -6,7 +7,7 @@ from PIL import Image
 from config import ExperimentConfig, ProtocolConfig
 from data import Sample, build_episode_plan, write_manifest
 from methods.base import FewShotMethod
-from run import _run_joint_plan, _write_results, run_experiment
+from run import episode_path, run_experiment, run_joint_plan, write_episode_plans, write_results
 from utils import ConfigurationError
 
 
@@ -118,13 +119,45 @@ def test_joint_mode_adapts_once_with_all_generator_support(tmp_path: Path) -> No
     )
     method = _RecordingMethod()
 
-    records = _run_joint_plan(config, plan, method)
+    records = run_joint_plan(config, plan, method)
 
     assert len(method.support) == 4
     assert {sample.generator for sample in method.support} == {"g1", "g2"}
     assert [record["eval_generator"] for record in records] == ["g1", "g2"]
     assert all(record["accuracy"] == 1.0 for record in records)
     assert all(record["reproduction_scope"] == method.reproduction_scope for record in records)
+
+
+def test_episode_plan_is_stored_once_outside_method_directories(tmp_path: Path) -> None:
+    samples = [
+        Sample(tmp_path / f"{label}-{index}.png", label, "g1")
+        for label in (0, 1)
+        for index in range(2)
+    ]
+    plan = build_episode_plan(samples, ("g1",), shots=1, seed=5)
+    config = ExperimentConfig(
+        name="episodes",
+        root=tmp_path,
+        output_dir=tmp_path / "outputs",
+        protocol=ProtocolConfig(
+            manifest=tmp_path / "unused.csv",
+            stages=("g1",),
+            shots=(1,),
+            seeds=(5,),
+            query_per_class=None,
+            cumulative_cache=False,
+            evaluation_scope="current",
+            source_generators=(),
+        ),
+        methods={"ftnet": {}, "ftnet_t": {}},
+    )
+
+    write_episode_plans(config, (plan,))
+
+    path = episode_path(config, plan)
+    assert path == tmp_path / "outputs/episodes/continual/1shot/seed_5/episode.json"
+    assert json.loads(path.read_text(encoding="utf-8"))["stages"][0]["generator"] == "g1"
+    assert not list((tmp_path / "outputs").glob("ftnet*/**/episode.json"))
 
 
 def test_result_csv_accepts_method_specific_metric_columns(tmp_path: Path) -> None:
@@ -149,7 +182,7 @@ def test_result_csv_accepts_method_specific_metric_columns(tmp_path: Path) -> No
             "official_metric": 0.9,
         },
     ]
-    _write_results(tmp_path, records)
+    write_results(tmp_path, records)
     header = (tmp_path / "results.csv").read_text(encoding="utf-8").splitlines()[0]
     assert "official_metric" in header
 

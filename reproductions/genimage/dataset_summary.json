@@ -1,11 +1,6 @@
 {
-  "dataset_root": "/home/yabin/projects/IAPL-GenImage/data/GenImage",
-  "manifest": "/home/yabin/projects/fsaid/data/manifests/genimage.csv",
-  "support_manifest": null,
   "view": "paper-six",
   "rows": 100000,
-  "explicit_shots": null,
-  "seed": null,
   "filesystem_order": true,
   "counts": {
     "ADM": {

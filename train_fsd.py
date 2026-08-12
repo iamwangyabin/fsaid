@@ -1,24 +1,16 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import random
 import time
 from pathlib import Path
 
+from file_io import sha256_file
 from utils import ConfigurationError
 
 
 GENIMAGE_CLASSES = ("real", "ADM", "BigGAN", "glide", "Midjourney", "SD", "VQDM")
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        while chunk := handle.read(16 * 1024 * 1024):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def train_fsd(
@@ -70,7 +62,7 @@ def train_fsd(
             raise ConfigurationError(
                 f"FSD pretrained checkpoint is missing: {pretrained_checkpoint}"
             )
-        pretrained_hash = _sha256(pretrained_checkpoint)
+        pretrained_hash = sha256_file(pretrained_checkpoint)
 
     try:
         import torch

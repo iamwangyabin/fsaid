@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from PIL import Image
 
 from data import Sample
-from methods.base import FewShotMethod
+from methods.base import EvaluationOnlyMethod
 from utils import ConfigurationError
 
 
@@ -87,11 +87,10 @@ class TwinNeXt(nn.Module):
         return self.mlp(torch.cat([self.backbone1(x1), self.backbone2(x2)], dim=1))
 
 
-class OmniDFADetectionMethod(FewShotMethod):
+class OmniDFADetectionMethod(EvaluationOnlyMethod):
     """Evaluation-only real/fake branch of the released OmniDFA model."""
 
     name = "omnidfa_detection"
-    adaptation_mode = "evaluation_only"
     reproduction_scope = "official_released_authenticity_inference"
 
     def __init__(self, config: dict[str, Any]):
@@ -157,15 +156,6 @@ class OmniDFADetectionMethod(FewShotMethod):
             )
         self.model.load_state_dict(payload["model"])
         self.center.load_state_dict(payload["cl_model"])
-
-    def adapt(
-        self,
-        generator: str,
-        stage_support: Sequence[Sample],
-        cumulative_support: Sequence[Sample],
-        artifact_dir: Path,
-    ) -> None:
-        del generator, stage_support, cumulative_support, artifact_dir
 
     def _views(self, samples: Sequence[Sample]) -> tuple[torch.Tensor, torch.Tensor]:
         local, global_images = [], []

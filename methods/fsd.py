@@ -13,9 +13,8 @@ from models import FSDResNetEncoder, load_image_batch
 from utils import ConfigurationError
 
 
-def prototypical_scores(query: torch.Tensor, support: torch.Tensor) -> torch.Tensor:
-    """Negative squared-Euclidean distance to mean class prototypes."""
-    prototypes = support.mean(dim=1)
+def prototype_scores(query: torch.Tensor, prototypes: torch.Tensor) -> torch.Tensor:
+    """Negative squared-Euclidean distance to class prototypes."""
     return -((query[:, None, :] - prototypes[None, :, :]) ** 2).sum(dim=-1)
 
 
@@ -92,5 +91,5 @@ class FSDMethod(FewShotMethod):
             raise RuntimeError(f"FSD has no prototype for {generator}")
         query = self._features(samples)
         prototypes = self.prototypes[generator]
-        scores = -((query[:, None, :] - prototypes[None, :, :]) ** 2).sum(dim=-1)
+        scores = prototype_scores(query, prototypes)
         return scores.softmax(dim=-1)[:, 1].detach().cpu().tolist()

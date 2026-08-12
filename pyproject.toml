@@ -45,6 +45,7 @@ py-modules = [
   "run",
   "config",
   "data",
+  "file_io",
   "genimage_arrow",
   "models",
   "utils",

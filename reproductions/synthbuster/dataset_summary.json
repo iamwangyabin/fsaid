@@ -1,18 +1,10 @@
 {
-  "snapshot_root": "/data/DF-arrow-data/synthbuster",
-  "work_root": "/home/yabin/projects/fsaid/data/work/synthbuster_clipdet_official",
-  "official_csv": "/home/yabin/projects/fsaid/data/reference/clipdet_commercial_tools.csv",
   "official_csv_sha256": "aaba9092db2d3b9afe0ee4ebcb2e20b673602cb76494af54d4a9756135f57f29",
   "official_path_set_sha256": "45ab1a5252079542757d10d5490eb57234dd70d6fccc906a2fdf5d04924af565",
-  "manifest": "/home/yabin/projects/fsaid/data/manifests/synthbuster_clipdet_official.csv",
   "arrow_shards": 31,
   "arrow_rows": 10000,
   "official_unique_images": 5000,
   "manifest_rows": 8000,
-  "written_images": 5000,
-  "reused_images": 0,
-  "written_real_hardlinks": 4000,
-  "reused_real_hardlinks": 0,
   "counts": {
     "real": 1000,
     "dalle2": 1000,

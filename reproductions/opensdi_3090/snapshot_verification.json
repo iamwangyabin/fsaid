@@ -1,9 +1,0 @@
-{
-  "snapshot_root": "/home/yabin/projects/fsaid/data/huggingface/nebula/OpenSDI_test",
-  "metadata": "/home/yabin/projects/fsaid/data/huggingface/nebula/OpenSDI_test/.hfd/repo_metadata.json",
-  "revision": "7e233eaf98fcfee4c74c788f0e34d06feb7ad0df",
-  "verified_lfs_files": 52,
-  "verified_bytes": 18266080332,
-  "failures": [],
-  "ok": true
-}

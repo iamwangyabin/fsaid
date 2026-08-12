@@ -15,7 +15,6 @@ from tqdm import tqdm
 from data import Sample
 from methods.base import FewShotMethod
 from models import CLIPLayerEncoder, load_image_batch
-from utils import ConfigurationError
 
 
 class LabeledImageDataset(Dataset):
@@ -80,8 +79,6 @@ class FTNetMethod(FewShotMethod):
         self.alpha = float(config.get("alpha", 15.0))
         self.epochs = int(config.get("epochs", 20))
         self.learning_rate = float(config.get("learning_rate", 0.001))
-        if train_keys and (self.epochs != 20 or self.learning_rate != 0.001):
-            raise ConfigurationError("Exact FTNet-T requires epochs=20 and learning_rate=0.001")
         self.encoder = CLIPLayerEncoder(
             device=self.device,
             model_name=str(config.get("backbone", "ViT-L/14")),
@@ -91,8 +88,10 @@ class FTNetMethod(FewShotMethod):
         self.cache_keys: torch.Tensor | None = None
         self.cache_values: torch.Tensor | None = None
         self.adapter: nn.Linear | None = None
+        self.feature_positions: dict[str, int] | None = None
+        self.cached_features: torch.Tensor | None = None
 
-    def _extract(self, samples: Sequence[Sample]) -> torch.Tensor:
+    def encode_samples(self, samples: Sequence[Sample]) -> torch.Tensor:
         outputs = []
         for offset in range(0, len(samples), self.batch_size):
             chunk = samples[offset : offset + self.batch_size]
@@ -101,6 +100,29 @@ class FTNetMethod(FewShotMethod):
             )
             outputs.append(self.encoder.encode(images))
         return torch.cat(outputs, dim=0)
+
+    def set_feature_cache(
+        self,
+        identities: Sequence[str],
+        features: torch.Tensor,
+    ) -> None:
+        if features.ndim != 2 or features.shape[0] != len(identities):
+            raise ValueError("Feature cache dimensions do not match its identity list")
+        if len(set(identities)) != len(identities):
+            raise ValueError("Feature cache identity list contains duplicates")
+        self.feature_positions = {
+            identity: index for index, identity in enumerate(identities)
+        }
+        self.cached_features = features
+
+    def _features(self, samples: Sequence[Sample]) -> torch.Tensor:
+        if self.feature_positions is None or self.cached_features is None:
+            return self.encode_samples(samples)
+        try:
+            indices = [self.feature_positions[sample.identity] for sample in samples]
+        except KeyError as exc:
+            raise ValueError(f"Feature cache is missing sample {exc.args[0]}") from exc
+        return self.cached_features[indices].to(self.device)
 
     def _create_adapter(self) -> nn.Linear:
         if self.cache_keys is None:
@@ -154,7 +176,7 @@ class FTNetMethod(FewShotMethod):
         artifact_dir: Path,
     ) -> None:
         del generator, stage_support
-        features = self._extract(cumulative_support)
+        features = self._features(cumulative_support)
         labels = torch.tensor(
             [sample.label for sample in cumulative_support],
             dtype=torch.long,
@@ -172,7 +194,7 @@ class FTNetMethod(FewShotMethod):
         del generator
         if self.cache_values is None:
             raise RuntimeError(f"{self.name} has not been adapted")
-        features = self._extract(samples)
+        features = self._features(samples)
         if self.train_keys:
             if self.adapter is None:
                 raise RuntimeError("FTNet-T adapter is unavailable")

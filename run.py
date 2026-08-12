@@ -5,13 +5,16 @@ import csv
 import json
 import math
 import sys
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from pathlib import Path
 from string import Formatter
-from typing import Any, Iterable
+from typing import Any
 
 from config import ExperimentConfig, load_config
 from data import (
     EpisodePlan,
+    Sample,
     build_episode_plan,
     load_manifest,
     scan_stage_folders,
@@ -19,44 +22,102 @@ from data import (
     validate_source_target_disjoint,
     write_manifest,
 )
+from file_io import write_json
 from methods.base import FewShotMethod
 from train_fsd import train_fsd
 from utils import BenchmarkError, ConfigurationError, binary_metrics, verify_backends
 
 
-CORE_METHOD_NAMES = ("fsd", "ftnet", "ftnet_t")
-EVALUATION_METHOD_NAMES = ("clipdet", "omnidfa_detection")
-METHOD_NAMES = (*CORE_METHOD_NAMES, *EVALUATION_METHOD_NAMES)
+@dataclass(frozen=True)
+class MethodSpec:
+    factory: Callable[[dict[str, Any]], FewShotMethod]
+    settings: frozenset[str]
+    evaluation_only: bool = False
 
-METHOD_CONFIG_KEYS = {
-    "fsd": {"checkpoint", "device", "batch_size", "fp16"},
-    "ftnet": {
-        "device",
-        "backbone",
-        "clip_layer",
-        "download_root",
-        "alpha",
-        "batch_size",
-    },
-    "ftnet_t": {
-        "device",
-        "backbone",
-        "clip_layer",
-        "download_root",
-        "alpha",
-        "epochs",
-        "learning_rate",
-        "batch_size",
-        "num_workers",
-    },
-    "clipdet": {"checkpoint", "backbone_checkpoint", "device", "batch_size"},
-    "omnidfa_detection": {"checkpoint", "device", "batch_size", "dtype", "seed"},
+
+def _fsd(config: dict[str, Any]) -> FewShotMethod:
+    from methods.fsd import FSDMethod
+
+    return FSDMethod(config)
+
+
+def _ftnet(config: dict[str, Any]) -> FewShotMethod:
+    from methods.ftnet import FTNetMethod
+
+    return FTNetMethod(config)
+
+
+def _ftnet_t(config: dict[str, Any]) -> FewShotMethod:
+    from methods.ftnet import FTNetTMethod
+
+    return FTNetTMethod(config)
+
+
+def _clipdet(config: dict[str, Any]) -> FewShotMethod:
+    from methods.clipdet import CLIPDetMethod
+
+    return CLIPDetMethod(config)
+
+
+def _omnidfa(config: dict[str, Any]) -> FewShotMethod:
+    from methods.omnidfa import OmniDFADetectionMethod
+
+    return OmniDFADetectionMethod(config)
+
+
+METHOD_SPECS = {
+    "fsd": MethodSpec(
+        _fsd,
+        frozenset({"checkpoint", "device", "batch_size", "fp16"}),
+    ),
+    "ftnet": MethodSpec(
+        _ftnet,
+        frozenset(
+            {"device", "backbone", "clip_layer", "download_root", "alpha", "batch_size"}
+        ),
+    ),
+    "ftnet_t": MethodSpec(
+        _ftnet_t,
+        frozenset(
+            {
+                "device",
+                "backbone",
+                "clip_layer",
+                "download_root",
+                "alpha",
+                "epochs",
+                "learning_rate",
+                "batch_size",
+                "num_workers",
+            }
+        ),
+    ),
+    "clipdet": MethodSpec(
+        _clipdet,
+        frozenset({"checkpoint", "backbone_checkpoint", "device", "batch_size"}),
+        evaluation_only=True,
+    ),
+    "omnidfa_detection": MethodSpec(
+        _omnidfa,
+        frozenset({"checkpoint", "device", "batch_size", "dtype", "seed"}),
+        evaluation_only=True,
+    ),
 }
+METHOD_NAMES = tuple(METHOD_SPECS)
+EVALUATION_METHOD_NAMES = frozenset(
+    name for name, spec in METHOD_SPECS.items() if spec.evaluation_only
+)
+
+
+@dataclass(frozen=True)
+class PreparedExperiment:
+    samples: tuple[Sample, ...]
+    plans: tuple[EpisodePlan, ...]
 
 
 def _validate_method_configs(config: ExperimentConfig) -> None:
     for name, method_config in config.methods.items():
-        unknown = set(method_config) - METHOD_CONFIG_KEYS[name]
+        unknown = set(method_config) - METHOD_SPECS[name].settings
         if unknown:
             raise ConfigurationError(f"Unknown {name} settings: {sorted(unknown)}")
 
@@ -153,13 +214,11 @@ def _validate_number_setting(
         raise ConfigurationError(f"methods.{name}.{key} must be greater than {minimum_exclusive}")
 
 
-def validate_experiment(config: ExperimentConfig) -> list[EpisodePlan]:
-    unknown_configs = set(config.methods) - set(METHOD_NAMES)
+def prepare_experiment(config: ExperimentConfig) -> PreparedExperiment:
+    unknown_configs = set(config.methods) - METHOD_SPECS.keys()
     if unknown_configs:
         raise ConfigurationError(f"Unknown method configs: {sorted(unknown_configs)}")
     _validate_method_configs(config)
-    if 0 in config.protocol.shots and set(config.methods) - set(EVALUATION_METHOD_NAMES):
-        raise ConfigurationError("0-shot episodes are only valid for evaluation-only methods")
     samples = load_manifest(config.protocol.manifest)
     if config.protocol.source_generators:
         validate_source_target_disjoint(config.protocol.source_generators, config.protocol.stages)
@@ -167,7 +226,7 @@ def validate_experiment(config: ExperimentConfig) -> list[EpisodePlan]:
     if missing:
         preview = "\n".join(str(path) for path in missing[:10])
         raise ConfigurationError(f"Manifest references {len(missing)} missing files:\n{preview}")
-    return [
+    plans = tuple(
         build_episode_plan(
             samples,
             config.protocol.stages,
@@ -177,7 +236,8 @@ def validate_experiment(config: ExperimentConfig) -> list[EpisodePlan]:
         )
         for shots in config.protocol.shots
         for seed in config.protocol.seeds
-    ]
+    )
+    return PreparedExperiment(tuple(samples), plans)
 
 
 def run_experiment(
@@ -185,20 +245,20 @@ def run_experiment(
     methods: Iterable[str] = METHOD_NAMES,
     dry_run: bool = False,
 ) -> list[dict[str, Any]]:
-    verify_backends()
-    plans = validate_experiment(config)
     selected = tuple(methods)
     if not selected:
         raise ConfigurationError("Select at least one method")
     if len(set(selected)) != len(selected):
         raise ConfigurationError("Method selection contains duplicates")
-    unknown = set(selected) - set(METHOD_NAMES)
+    unknown = set(selected) - METHOD_SPECS.keys()
     if unknown:
         raise ConfigurationError(f"Unknown methods: {sorted(unknown)}")
     missing_method_configs = set(selected) - set(config.methods)
     if missing_method_configs:
         raise ConfigurationError(f"Missing method configs: {sorted(missing_method_configs)}")
-    if any(plan.shots == 0 for plan in plans) and set(selected) - set(EVALUATION_METHOD_NAMES):
+    verify_backends(methods=selected)
+    prepared = prepare_experiment(config)
+    if any(plan.shots == 0 for plan in prepared.plans) and set(selected) - EVALUATION_METHOD_NAMES:
         raise ConfigurationError("0-shot episodes are only valid for evaluation-only methods")
     if (
         "fsd" in selected
@@ -218,62 +278,80 @@ def run_experiment(
     if config.protocol.episode_mode == "joint" and "fsd" in selected:
         raise ConfigurationError("FSD's released protocol is per-target, not a joint cache episode")
     if dry_run:
-        return [_plan_summary(config, plan, selected) for plan in plans]
+        return [_plan_summary(config, plan, selected) for plan in prepared.plans]
 
+    write_episode_plans(config, prepared.plans)
     all_records: list[dict[str, Any]] = []
     for method_name in selected:
-        for plan in plans:
-            method = _create_method(method_name, config)
+        for plan in prepared.plans:
+            method = create_method(method_name, config)
             try:
                 records = (
-                    _run_joint_plan(config, plan, method)
+                    run_joint_plan(config, plan, method)
                     if config.protocol.episode_mode == "joint"
-                    else _run_plan(config, plan, method)
+                    else run_plan(config, plan, method)
                 )
                 all_records.extend(records)
             finally:
                 method.close()
-    _write_results(config.output_dir, all_records)
+    write_results(config.output_dir, all_records)
     return all_records
 
 
-def _create_method(name: str, config: ExperimentConfig) -> FewShotMethod:
+def create_method(name: str, config: ExperimentConfig) -> FewShotMethod:
     method_config = dict(config.methods[name])
     for key in ("checkpoint", "backbone_checkpoint"):
         if key in method_config:
             candidate = Path(str(method_config[key])).expanduser()
             if not candidate.is_absolute():
                 method_config[key] = str(config.root / candidate)
-    if name == "fsd":
-        checkpoint = str(method_config["checkpoint"])
-        method_config["checkpoint"] = checkpoint
-        from methods.fsd import FSDMethod
-
-        return FSDMethod(method_config)
-    if name == "ftnet":
-        from methods.ftnet import FTNetMethod
-
-        return FTNetMethod(method_config)
-    if name == "ftnet_t":
-        from methods.ftnet import FTNetTMethod
-
-        return FTNetTMethod(method_config)
-    if name == "clipdet":
-        from methods.clipdet import CLIPDetMethod
-
-        return CLIPDetMethod(method_config)
-    if name == "omnidfa_detection":
-        from methods.omnidfa import OmniDFADetectionMethod
-
-        return OmniDFADetectionMethod(method_config)
-    raise AssertionError(name)
+    return METHOD_SPECS[name].factory(method_config)
 
 
-def _run_plan(
+def episode_path(config: ExperimentConfig, plan: EpisodePlan) -> Path:
+    return (
+        config.output_dir
+        / "episodes"
+        / config.protocol.episode_mode
+        / f"{plan.shots}shot"
+        / f"seed_{plan.seed}"
+        / "episode.json"
+    )
+
+
+def write_episode_plans(config: ExperimentConfig, plans: Iterable[EpisodePlan]) -> None:
+    for plan in plans:
+        write_json(
+            episode_path(config, plan),
+            {
+                "mode": config.protocol.episode_mode,
+                "shots_per_class": plan.shots,
+                "seed": plan.seed,
+                "stages": [
+                    {
+                        "index": stage.stage_index,
+                        "generator": stage.generator,
+                        "support": [
+                            {"path": sample.identity, "label": sample.label}
+                            for sample in stage.support
+                        ],
+                        "query": [
+                            {"path": sample.identity, "label": sample.label}
+                            for sample in stage.query
+                        ],
+                    }
+                    for stage in plan.stages
+                ],
+            },
+        )
+
+
+def run_plan(
     config: ExperimentConfig, plan: EpisodePlan, method: FewShotMethod
 ) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     run_root = config.output_dir / method.name / f"{plan.shots}shot" / f"seed_{plan.seed}"
+    episode = episode_path(config, plan).relative_to(config.output_dir).as_posix()
     for stage in plan.stages:
         cumulative = (
             plan.support_through(stage.stage_index)
@@ -282,22 +360,6 @@ def _run_plan(
         )
         artifact_dir = run_root / f"stage_{stage.stage_index:02d}_{_safe(stage.generator)}"
         artifact_dir.mkdir(parents=True, exist_ok=True)
-        with (artifact_dir / "episode.json").open("w", encoding="utf-8") as handle:
-            json.dump(
-                {
-                    "generator": stage.generator,
-                    "shots": plan.shots,
-                    "seed": plan.seed,
-                    "support": [
-                        {"path": sample.identity, "label": sample.label} for sample in stage.support
-                    ],
-                    "query": [
-                        {"path": sample.identity, "label": sample.label} for sample in stage.query
-                    ],
-                },
-                handle,
-                indent=2,
-            )
         method.adapt(stage.generator, stage.support, cumulative, artifact_dir)
 
         stage_records = []
@@ -325,16 +387,16 @@ def _run_plan(
                 "adapt_generator": stage.generator,
                 "eval_stage": evaluation_stage.stage_index,
                 "eval_generator": evaluation_stage.generator,
+                "episode": episode,
                 **metrics,
             }
             records.append(record)
             stage_records.append(record)
-        with (artifact_dir / "metrics.json").open("w", encoding="utf-8") as handle:
-            json.dump(stage_records, handle, indent=2, allow_nan=True)
+        write_json(artifact_dir / "metrics.json", stage_records, allow_nan=True)
     return records
 
 
-def _run_joint_plan(
+def run_joint_plan(
     config: ExperimentConfig, plan: EpisodePlan, method: FewShotMethod
 ) -> list[dict[str, Any]]:
     """Paper-style joint cache: K real/fake from every generator, then one evaluation."""
@@ -342,30 +404,7 @@ def _run_joint_plan(
     artifact_dir = run_root / "joint_episode"
     artifact_dir.mkdir(parents=True, exist_ok=True)
     support = tuple(sample for stage in plan.stages for sample in stage.support)
-    with (artifact_dir / "episode.json").open("w", encoding="utf-8") as handle:
-        json.dump(
-            {
-                "mode": "joint",
-                "shots_per_class_per_generator": plan.shots,
-                "seed": plan.seed,
-                "support": [
-                    {
-                        "path": sample.identity,
-                        "label": sample.label,
-                        "generator": sample.generator,
-                    }
-                    for sample in support
-                ],
-                "query": {
-                    stage.generator: [
-                        {"path": sample.identity, "label": sample.label} for sample in stage.query
-                    ]
-                    for stage in plan.stages
-                },
-            },
-            handle,
-            indent=2,
-        )
+    episode = episode_path(config, plan).relative_to(config.output_dir).as_posix()
     method.adapt("joint", support, support, artifact_dir)
 
     records = []
@@ -388,15 +427,15 @@ def _run_joint_plan(
                 "adapt_generator": "joint",
                 "eval_stage": stage.stage_index,
                 "eval_generator": stage.generator,
+                "episode": episode,
                 **metrics,
             }
         )
-    with (artifact_dir / "metrics.json").open("w", encoding="utf-8") as handle:
-        json.dump(records, handle, indent=2, allow_nan=True)
+    write_json(artifact_dir / "metrics.json", records, allow_nan=True)
     return records
 
 
-def _write_results(output_dir: Path, records: list[dict[str, Any]]) -> None:
+def write_results(output_dir: Path, records: list[dict[str, Any]]) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     with (output_dir / "results.jsonl").open("w", encoding="utf-8") as handle:
         for record in records:
@@ -460,6 +499,16 @@ def _plan_summary(
     }
 
 
+def expected_result_counts(config: ExperimentConfig) -> dict[str, int]:
+    stage_count = len(config.protocol.stages)
+    if config.protocol.episode_mode == "joint" or config.protocol.evaluation_scope == "current":
+        records_per_plan = stage_count
+    else:
+        records_per_plan = stage_count * (stage_count + 1) // 2
+    total = records_per_plan * len(config.protocol.shots) * len(config.protocol.seeds)
+    return {method: total for method in config.methods}
+
+
 def _safe(value: str) -> str:
     return "".join(
         character if character.isalnum() or character in "._-" else "_" for character in value
@@ -511,8 +560,9 @@ def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     try:
         if args.command == "verify":
-            print(json.dumps(verify_backends(strict=False), indent=2))
-            if not all(item["ok"] for item in verify_backends(strict=False)):
+            results = verify_backends(strict=False)
+            print(json.dumps(results, indent=2))
+            if not all(item["ok"] for item in results):
                 raise SystemExit(1)
         elif args.command == "index":
             samples = scan_stage_folders(args.data_root)
@@ -520,8 +570,8 @@ def main(argv: list[str] | None = None) -> None:
             print(f"Wrote {len(samples)} rows to {args.output.resolve()}")
         elif args.command == "validate":
             config = load_config(args.config)
-            plans = validate_experiment(config)
-            print(json.dumps({"valid": True, "plans": len(plans)}, indent=2))
+            prepared = prepare_experiment(config)
+            print(json.dumps({"valid": True, "plans": len(prepared.plans)}, indent=2))
         elif args.command == "run":
             config = load_config(args.config)
             methods = tuple(config.methods) if args.method == "all" else (args.method,)

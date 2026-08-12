@@ -36,3 +36,16 @@ class FewShotMethod(ABC):
         """Return method-native metrics when they differ from the shared metrics."""
         del labels, fake_scores
         return {}
+
+
+class EvaluationOnlyMethod(FewShotMethod):
+    adaptation_mode = "evaluation_only"
+
+    def adapt(
+        self,
+        generator: str,
+        stage_support: Sequence[Sample],
+        cumulative_support: Sequence[Sample],
+        artifact_dir: Path,
+    ) -> None:
+        pass

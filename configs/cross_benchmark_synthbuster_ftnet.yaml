@@ -1,0 +1,29 @@
+name: cross_benchmark_synthbuster_ftnet
+output_dir: outputs/cross_benchmark/synthbuster/ftnet
+
+protocol:
+  manifest: data/manifests/cross_benchmark/synthbuster.csv
+  stages: [DALL-E 2, DALL-E 3, Midjourney v5, Adobe Firefly]
+  shots: [1, 5, 10]
+  seeds: [0, 1, 2]
+  query_per_class: null
+  cumulative_cache: false
+  evaluation_scope: current
+  source_generators: []
+
+methods:
+  ftnet:
+    device: cuda:0
+    backbone: ViT-L/14
+    clip_layer: 12
+    alpha: 15.0
+    batch_size: 64
+  ftnet_t:
+    device: cuda:0
+    backbone: ViT-L/14
+    clip_layer: 12
+    alpha: 15.0
+    epochs: 20
+    learning_rate: 0.001
+    batch_size: 32
+    num_workers: 4
