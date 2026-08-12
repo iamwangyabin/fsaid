@@ -56,6 +56,8 @@ def test_download_round_attempts_every_shard_before_reporting_failures(
             tmp_path,
             ["first.arrow", "bad.arrow", "last.arrow"],
             workers=2,
+            retries=0,
+            retry_delay=0,
         )
 
     assert sorted(filename for _, filename, _ in attempted) == [

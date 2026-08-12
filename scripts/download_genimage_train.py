@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import shutil
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -102,6 +103,8 @@ def _download_missing(
     download_root: Path,
     missing: list[str],
     workers: int,
+    retries: int,
+    retry_delay: float,
 ) -> None:
     _configure_hf_environment()
     try:
@@ -110,14 +113,27 @@ def _download_missing(
         raise RuntimeError("Download requires huggingface_hub") from exc
 
     def download_one(name: str) -> None:
-        hf_hub_download(
-            repo_id,
-            filename=f"train/{name}",
-            repo_type="dataset",
-            revision=revision,
-            endpoint=endpoint,
-            local_dir=download_root,
-        )
+        for attempt in range(1, retries + 2):
+            try:
+                hf_hub_download(
+                    repo_id,
+                    filename=f"train/{name}",
+                    repo_type="dataset",
+                    revision=revision,
+                    endpoint=endpoint,
+                    local_dir=download_root,
+                )
+                return
+            except Exception as exc:  # noqa: BLE001 - resume the local partial shard
+                if attempt > retries:
+                    raise
+                message = str(exc).splitlines()[0].split("?")[0][:240]
+                print(
+                    f"retry {attempt}/{retries} {name}: "
+                    f"{type(exc).__name__}: {message}",
+                    flush=True,
+                )
+                time.sleep(retry_delay * attempt)
 
     failures: list[str] = []
     with ThreadPoolExecutor(max_workers=workers) as executor:
@@ -216,6 +232,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--revision", default=DEFAULT_REVISION)
     parser.add_argument("--endpoint", default=DEFAULT_ENDPOINT)
     parser.add_argument("--workers", type=int, default=8)
+    parser.add_argument("--retries", type=int, default=3)
+    parser.add_argument("--retry-delay", type=float, default=5.0)
     return parser.parse_args()
 
 
@@ -223,6 +241,8 @@ def main() -> None:
     args = parse_args()
     if args.workers <= 0:
         raise ValueError("workers must be positive")
+    if args.retries < 0 or args.retry_delay < 0:
+        raise ValueError("retries and retry-delay must be non-negative")
 
     existing_root = args.existing_root.expanduser().resolve()
     download_root = args.download_root.expanduser().resolve()
@@ -279,6 +299,8 @@ def main() -> None:
             download_root,
             missing,
             args.workers,
+            args.retries,
+            args.retry_delay,
         )
         verify_downloaded_shards(download_root / "train", missing, metadata)
 
