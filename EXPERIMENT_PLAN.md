@@ -10,8 +10,8 @@
 
 当前代码已融合 FSD、FTNet、FTNet-T、CLIPDet evaluation-only 和 OmniDFA
 Detection evaluation-only。Git仓库不跟踪数据集和大模型权重；3090项目目录已准备
-GenImage公开测试视图和完整OpenSDI测试集，并已完成当前输入允许的全量实验，但
-尚未接入RACE。结果见[`REPRODUCTION_ALL_3090.md`](REPRODUCTION_ALL_3090.md)。
+GenImage公开测试视图和完整OpenSDI测试集，并已完成当前输入允许的全量实验。
+结果见[`REPRODUCTION_ALL_3090.md`](REPRODUCTION_ALL_3090.md)。
 
 实验必须分成两组报告：
 
@@ -29,7 +29,6 @@ GenImage公开测试视图和完整OpenSDI测试集，并已完成当前输入�
 | FTNet-T | learnable feature cache | 是 | `[x]` 已融合；`[x]` GenImage/OpenSDI实测 |
 | CLIPDet | 固定权重检测参考 | 否，使用K=0 | `[x]` 已融合；`[x]` GenImage/OpenSDI实测 |
 | OmniDFA Detection | 固定权重检测参考 | 否，使用K=0 | `[x]` 已融合；`[x]` GenImage/OpenSDI实测 |
-| RACE | 待比较的目标方法 | 是 | `[ ]` 尚未接入本仓库 |
 
 CLIPDet 和 OmniDFA Detection 不得描述成 few-shot adaptation 方法。FSD 虽然在源
 训练时区分多个生成器类别，但正式评测仍为 target fake 与 real 的二分类。
@@ -242,7 +241,6 @@ evaluation_scope: all seen generators
 | FSD | 训练无泄漏source encoder | 计算新的real/fake prototype |
 | FTNet | 无训练 | support加入累计cache |
 | FTNet-T | 无训练 | support加入cache并训练adapter |
-| RACE | 训练初始模型 | discrepancy判断和residual expert更新 |
 | CLIPDet | 固定权重 | 不更新 |
 | OmniDFA Detection | 固定权重 | 不更新 |
 
@@ -250,7 +248,6 @@ evaluation_scope: all seen generators
 
 - [x] FSD/FTNet/FTNet-T continual runner；
 - [x] CLIPDet/OmniDFA evaluation-only runner；
-- [ ] 接入RACE并遵守同一manifest/episode接口；
 - [x] FTNet/FTNet-T完成K=1/5/10、三个seed的完整GPU运行；
 - [x] FTNet/FTNet-T所有已见generator的lower-triangular结果矩阵；
 - [ ] FSD需官方权重或完整GenImage train后补跑同一矩阵。
@@ -304,8 +301,8 @@ F1和样本数。OmniDFA同时保留论文定义的real-positive AP。
 - [ ] support退化/query原图；
 - [ ] support原图/query退化。
 
-重点观察FSD prototype稳定性、FTNet cache敏感性、FTNet-T对support的过拟合、RACE
-持续适配能力，以及两个固定检测器的zero-shot鲁棒性。
+重点观察FSD prototype稳定性、FTNet cache敏感性、FTNet-T对support的过拟合，
+以及两个固定检测器的zero-shot鲁棒性。
 
 ## 10. 结果与交付物
 
@@ -336,18 +333,17 @@ SHA-256、随机种子和原始逐图片预测结果。
 7. [ ] 完成FSD论文协议验证；
 8. [ ] 完成FTNet/FTNet-T GenImage和OpenSDI协议验证；
 9. [ ] 完成CLIPDet与OmniDFA固定权重评测；
-10. [ ] 接入并验证RACE；
-11. [ ] 运行统一K=1/5/10、三个seed主实验；
-12. [ ] 计算continual、效率和资源指标；
-13. [ ] 运行扩展数据与鲁棒性实验；
-14. [ ] 汇总表格并归档全部复现凭据。
+10. [ ] 运行统一K=1/5/10、三个seed主实验；
+11. [ ] 计算continual、效率和资源指标；
+12. [ ] 运行扩展数据与鲁棒性实验；
+13. [ ] 汇总表格并归档全部复现凭据。
 
 ## 12. 完成标准
 
 核心二分类实验完成必须同时满足：
 
 - GenImage与OpenSDI通过完整性检查；
-- FSD、FTNet、FTNet-T和RACE完成所有K与seed；
+- FSD、FTNet和FTNet-T完成所有K与seed；
 - 所有few-shot方法使用逐图片完全一致的support/query；
 - 固定检测器以K=0单独标注；
 - 所有结果能够从保存的config、manifest、episode和checkpoint重新运行；
@@ -357,7 +353,7 @@ SHA-256、随机种子和原始逐图片预测结果。
 核心范围为：
 
 ```text
-GenImage + OpenSDI + FSD + FTNet + FTNet-T + RACE
+GenImage + OpenSDI + FSD + FTNet + FTNet-T
 ```
 
 UniversalFakeDetect、Chameleon、SynthBuster和OmniFake属于完成核心范围后的扩展。
