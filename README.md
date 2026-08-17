@@ -44,6 +44,23 @@ python run.py index --data-root data/example --output data/manifests/example.csv
 
 目录结构为 `<generator>/{real|0_real,fake|1_fake}/**/*`。
 
+## 论文评测范围（规划）
+
+论文的评测范围锁定为五个数据集：GenImage、OpenSDI、SynthBuster、CDDB 和
+AIGI-Holmes。前 3 个构成当前已实现的跨数据集矩阵；CDDB 与 AIGI-Holmes 作为新增的
+跨范式外部评测，纳入同一套 binary real/fake few-shot 协议。
+
+| 数据集 | 评测角色 | 协议约束 |
+| --- | --- | --- |
+| GenImage | 经典大规模跨生成器基准 | 保留官方 train/val 语义，并控制 JPEG、尺寸与内容泄漏。 |
+| OpenSDI | 现代扩散生成器主评测 | SD1.5、SD2.1、SDXL、SD3、FLUX.1 分别作为独立 target。 |
+| SynthBuster | 商业与开源扩散模型外部评测 | 每个 generator 单独适配；real RAISE-1k 与 fake 使用固定清单。 |
+| CDDB | GAN、换脸和重演等跨范式外部评测 | 不采用原始 continual task order；每个 fake source 独立构造 binary target。 |
+| AIGI-Holmes | 较新生成器的外部评测 | 每个 generator 独立构造 target，并在建 manifest 时核验类计数、内容重合与数据来源。 |
+
+CDDB 与 AIGI-Holmes 在完成可复现 manifest、episode、source-exposure 审计和协议验证前，
+仅属于论文规划，不能写入结果表或作为已完成实验表述。
+
 ## 配置
 
 ```yaml
